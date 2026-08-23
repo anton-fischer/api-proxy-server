@@ -1,0 +1,26 @@
+name = "api-proxy-server"
+main = "src/index.js"
+compatibility_date = "2026-08-08"
+
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "REPLACE_WITH_CACHE_KV_ID"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_RATE_LIMIT_KV_ID"
+
+[vars]
+KV_PREFIX = "prod"
+
+[env.dev]
+[[env.dev.kv_namespaces]]
+binding = "CACHE_KV"
+id = "REPLACE_WITH_CACHE_KV_ID"
+
+[[env.dev.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_RATE_LIMIT_KV_ID"
+
+[env.dev.vars]
+KV_PREFIX = "dev"

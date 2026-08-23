@@ -1,36 +1,44 @@
-const express = require("express");
-const router = express.Router();
-const needle = require("needle");
-const apicache = require("apicache");
+import { Hono } from "hono";
 
-// include env vars
-const API_BASE_URL = process.env.API_BASE_URL;
-const API_KEY_NAME = process.env.API_KEY_NAME;
-const API_KEY_VALUE = process.env.API_KEY_VALUE;
+const CACHE_TTL_SECONDS = 10 * 60; // 10 minutes
 
-// initialize cache
-let cache = apicache.middleware;
+const routes = new Hono();
 
-router.get("/", cache("10 minutes"), async (req, res) => {
+routes.get("/", async (c) => {
+    const { API_BASE_URL, API_KEY_NAME, API_KEY_VALUE, CACHE_KV, KV_PREFIX } = c.env;
+    const query = c.req.query();
+
+    console.log("Received request with params:", query);
+
+    const params = new URLSearchParams({
+        [API_KEY_NAME]: API_KEY_VALUE,
+        ...query,
+    });
+
+    const cacheKey = `${KV_PREFIX || "dev"}:cache:${params}`;
+
+    const cached = await CACHE_KV.get(cacheKey, "json");
+    if (cached) {
+        console.log("Serving response from cache:", cacheKey);
+        return c.json(cached);
+    }
+
     try {
-        console.log("Received request with params:", req.query);
-
-        const params = new URLSearchParams({
-            [API_KEY_NAME]: API_KEY_VALUE,
-            ...req.query,
-        });
-
         const reqUrl = `${API_BASE_URL}?${params}`;
         console.log("Forwarding API-request:", reqUrl);
 
-        const apiRes = await needle("get", reqUrl);
-        const data = apiRes.body;
+        const apiRes = await fetch(reqUrl);
+        const data = await apiRes.json();
 
-        //console.log("Sending API-response:", data);
-        res.status(200).json(data);
+        await CACHE_KV.put(cacheKey, JSON.stringify(data), {
+            expirationTtl: CACHE_TTL_SECONDS,
+        });
+
+        return c.json(data);
     } catch (error) {
-        res.status(500).json({ error });
-    };
+        console.error(error);
+        return c.json({ error: "Failed to fetch data from upstream API" }, 500);
+    }
 });
 
-module.exports = router;
+export default routes;

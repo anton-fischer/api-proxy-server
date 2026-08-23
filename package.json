@@ -12,22 +12,17 @@
   },
   "license": "ISC",
   "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node src/index",
-    "dev": "nodemon src/index",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "apicache": "^1.6.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
-    "needle": "^3.5.0"
+    "hono": "^4.6.14"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "wrangler": "^4.120.0"
   }
 }

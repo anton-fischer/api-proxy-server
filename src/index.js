@@ -1,26 +1,39 @@
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-require("dotenv").config();
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import routes from "./routes/routes.js";
 
+const RATE_LIMIT_WINDOW_SECONDS = 10 * 60; // 10 minutes
+const RATE_LIMIT_MAX_REQUESTS = 100;
 
-// use port declared in env, else use 5000
-const PORT = process.env.PORT || 5000;
+const app = new Hono();
 
-const app = express();
+app.use("*", cors());
 
-// rate limiting
-const limiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 100, // 100 requests
+// rate limiting based on client IP, backed by KV
+app.use("*", async (c, next) => {
+    const ip = c.req.header("CF-Connecting-IP") || "unknown";
+    const prefix = c.env.KV_PREFIX || "dev";
+    const key = `${prefix}:ratelimit:${ip}`;
+
+    const current = await c.env.RATE_LIMIT_KV.get(key);
+    const count = current ? parseInt(current, 10) : 0;
+
+    if (count >= RATE_LIMIT_MAX_REQUESTS) {
+        return c.json({ error: "Too many requests, please try again later." }, 429);
+    }
+
+    await c.env.RATE_LIMIT_KV.put(key, String(count + 1), {
+        expirationTtl: RATE_LIMIT_WINDOW_SECONDS,
+    });
+
+    await next();
 });
-app.use(limiter);
-app.set("trust proxy", 1);
 
-// include routes
-app.use("/api", require("./routes/routes"))
+app.route("/api", routes);
 
-// enable cors
-app.use(cors());
+app.onError((error, c) => {
+    console.error(error);
+    return c.json({ error: "Internal server error" }, 500);
+});
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+export default app;
